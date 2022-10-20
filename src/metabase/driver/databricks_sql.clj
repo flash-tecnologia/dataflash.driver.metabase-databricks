@@ -1,6 +1,7 @@
 (ns metabase.driver.databricks-sql
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.string :as str]
+            [honeysql.core :as hsql]
             [medley.core :as m]
             [metabase.driver :as driver] 
             [metabase.driver.sql-jdbc.connection :as sql-jdbc.conn]
@@ -60,6 +61,22 @@
     #"array.*"          :type/Array
     #"map"              :type/Dictionary
     #".*"               :type/*))
+
+(defmethod sql.qp/date [:databricks-sql :minute]          [_ _ expr] (hsql/call :date_trunc "minute" expr))
+(defmethod sql.qp/date [:databricks-sql :minute-of-hour]  [_ _ expr] (hsql/call :minute expr))
+(defmethod sql.qp/date [:databricks-sql :hour]            [_ _ expr] (hsql/call :date_trunc "hour" expr))
+(defmethod sql.qp/date [:databricks-sql :hour-of-day]     [_ _ expr] (hsql/call :hour expr))
+(defmethod sql.qp/date [:databricks-sql :day]             [_ _ expr] (hsql/call :to_date expr))
+(defmethod sql.qp/date [:databricks-sql :day-of-week]     [_ _ expr] (hsql/call :dayofweek expr))
+(defmethod sql.qp/date [:databricks-sql :day-of-month]    [_ _ expr] (hsql/call :dayofmonth expr))
+(defmethod sql.qp/date [:databricks-sql :day-of-year]     [_ _ expr] (hsql/call :dayofyear expr))
+(defmethod sql.qp/date [:databricks-sql :week]            [_ _ expr] (hsql/call :date_trunc "week" expr))
+(defmethod sql.qp/date [:databricks-sql :week-of-year]    [_ _ expr] (hsql/call :weekofyear expr))
+(defmethod sql.qp/date [:databricks-sql :month]           [_ _ expr] (hsql/call :trunc expr "MM"))
+(defmethod sql.qp/date [:databricks-sql :month-of-year]   [_ _ expr] (hsql/call :month expr))
+(defmethod sql.qp/date [:databricks-sql :quarter]         [_ _ expr] (hsql/call :date_trunc "quarter" expr))
+(defmethod sql.qp/date [:databricks-sql :quarter-of-year] [_ _ expr] (hsql/call :quarter expr))
+(defmethod sql.qp/date [:databricks-sql :year]            [_ _ expr] (hsql/call :year expr))
 
 ;; workaround for SPARK-9686 Spark Thrift server doesn't return correct JDBC metadata
 (defmethod driver/describe-database :databricks-sql
