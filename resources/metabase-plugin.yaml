@@ -14,13 +14,19 @@ driver:
       - name: http-path 
         display-name: HTTP path
         required: true
-      - name: token
+      - name: password
         display-name: Personal Access Token
         required: true 
       - name: db
         display-name: Database
         default: default
         required: true 
+      - advanced-options-start
+      - merge:
+          - additional-options
+          - name: catalog
+            default: 'hive_metastore'
+      - default-advanced-options
 init:
   - step: load-namespace
     namespace: metabase.driver.databricks-sql

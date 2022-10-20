@@ -16,7 +16,7 @@
 (driver/register! :databricks-sql, :parent :sql-jdbc)
 
 (defmethod sql-jdbc.conn/connection-details->spec :databricks-sql
-  [_ {:keys [host http-path token db]}]
+  [_ {:keys [host http-path password db catalog]}]
   {:classname        "com.databricks.client.jdbc.Driver"
    :subprotocol      "databricks"
    :subname          (str "//" host ":443/" db)
@@ -25,7 +25,9 @@
    :AuthMech         3
    :httpPath         http-path
    :uid              "token"
-   :pwd              token})
+   :pwd              password
+   :connCatalog      catalog
+   })
 
 (defmethod sql-jdbc.conn/data-warehouse-connection-pool-properties :databricks-sql
   [driver database]
