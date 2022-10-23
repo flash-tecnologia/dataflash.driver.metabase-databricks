@@ -1,0 +1,1 @@
+clojure -X:build :project-dir "\"$(pwd)\""
