@@ -41,27 +41,30 @@
 
 (defmethod sql-jdbc.sync/database-type->base-type :databricks-sql
   [_ database-type]
-  (condp re-matches (name database-type)
-    #"boolean"          :type/Boolean
-    #"tinyint"          :type/Integer
-    #"smallint"         :type/Integer
-    #"int"              :type/Integer
-    #"bigint"           :type/BigInteger
-    #"float"            :type/Float
-    #"double"           :type/Float
-    #"double precision" :type/Double
-    #"decimal.*"        :type/Decimal
-    #"char.*"           :type/Text
-    #"varchar.*"        :type/Text
-    #"string.*"         :type/Text
-    #"binary*"          :type/*
-    #"date"             :type/Date
-    #"time"             :type/Time
-    #"timestamp"        :type/DateTime
-    #"interval"         :type/*
-    #"array.*"          :type/Array
-    #"map"              :type/Dictionary
-    #".*"               :type/*))
+  ({:BOOLEAN   :type/Boolean
+    :BYTE      :type/Integer
+    :TINYINT   :type/Integer
+    :SHORT     :type/Integer
+    :SMALLINT  :type/Integer
+    :INT       :type/Integer
+    :INTEGER   :type/Integer
+    :LONG      :type/BigInteger
+    :BIGINT    :type/BigInteger
+    :FLOAT     :type/Float
+    :REAL      :type/Float
+    :DOUBLE    :type/Float
+    :DATE      :type/Date
+    :TIMESTAMP :type/DateTimeWithLocalTZ ; stored as UTC in the database
+    :STRING    :type/Text
+    :BINARY    :type/*
+    :DECIMAL   :type/Decimal
+    :DEC       :type/Decimal
+    :NUMERIC   :type/Decimal
+    :INTERVAL  :type/*
+    :ARRAY     :type/Array
+    :STRUCT    :type/*
+    :MAP       :type/*}
+    database-type))
 
 (defmethod sql.qp/date [:databricks-sql :minute]          [_ _ expr] (hsql/call :date_trunc "minute" expr))
 (defmethod sql.qp/date [:databricks-sql :minute-of-hour]  [_ _ expr] (hsql/call :minute expr))
