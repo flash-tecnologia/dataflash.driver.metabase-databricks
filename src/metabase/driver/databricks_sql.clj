@@ -58,7 +58,7 @@
     #"(?i)TIMESTAMP" :type/DateTimeWithLocalTZ ; stored as UTC in the database
     #"(?i)STRING"    :type/Text
     #"(?i)BINARY"    :type/*
-    #"(?i)DECIMAL"   :type/Decimal
+    #"(?i)DECIMAL.*" :type/Decimal
     #"(?i)DEC"       :type/Decimal
     #"(?i)NUMERIC"   :type/Decimal
     #"(?i)INTERVAL"  :type/*
