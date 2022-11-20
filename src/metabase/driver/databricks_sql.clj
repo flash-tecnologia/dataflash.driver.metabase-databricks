@@ -41,30 +41,30 @@
 
 (defmethod sql-jdbc.sync/database-type->base-type :databricks-sql
   [_ database-type]
-  ({:BOOLEAN   :type/Boolean
-    :BYTE      :type/Integer
-    :TINYINT   :type/Integer
-    :SHORT     :type/Integer
-    :SMALLINT  :type/Integer
-    :INT       :type/Integer
-    :INTEGER   :type/Integer
-    :LONG      :type/BigInteger
-    :BIGINT    :type/BigInteger
-    :FLOAT     :type/Float
-    :REAL      :type/Float
-    :DOUBLE    :type/Float
-    :DATE      :type/Date
-    :TIMESTAMP :type/DateTimeWithLocalTZ ; stored as UTC in the database
-    :STRING    :type/Text
-    :BINARY    :type/*
-    :DECIMAL   :type/Decimal
-    :DEC       :type/Decimal
-    :NUMERIC   :type/Decimal
-    :INTERVAL  :type/*
-    :ARRAY     :type/Array
-    :STRUCT    :type/*
-    :MAP       :type/*}
-    database-type))
+  (condp re-matches (name database-type)
+    #"(?i)BOOLEAN"   :type/Boolean
+    #"(?i)BYTE"      :type/Integer
+    #"(?i)TINYINT"   :type/Integer
+    #"(?i)SHORT"     :type/Integer
+    #"(?i)SMALLINT"  :type/Integer
+    #"(?i)INT"       :type/Integer
+    #"(?i)INTEGER"   :type/Integer
+    #"(?i)LONG"      :type/BigInteger
+    #"(?i)BIGINT"    :type/BigInteger
+    #"(?i)FLOAT"     :type/Float
+    #"(?i)REAL"      :type/Float
+    #"(?i)DOUBLE"    :type/Float
+    #"(?i)DATE"      :type/Date
+    #"(?i)TIMESTAMP" :type/DateTimeWithLocalTZ ; stored as UTC in the database
+    #"(?i)STRING"    :type/Text
+    #"(?i)BINARY"    :type/*
+    #"(?i)DECIMAL"   :type/Decimal
+    #"(?i)DEC"       :type/Decimal
+    #"(?i)NUMERIC"   :type/Decimal
+    #"(?i)INTERVAL"  :type/*
+    #"(?i)ARRAY.*"   :type/Array
+    #"(?i)STRUCT"    :type/*
+    #"(?i)MAP"       :type/*))
 
 (defmethod sql.qp/date [:databricks-sql :minute]          [_ _ expr] (hsql/call :date_trunc "minute" expr))
 (defmethod sql.qp/date [:databricks-sql :minute-of-hour]  [_ _ expr] (hsql/call :minute expr))
