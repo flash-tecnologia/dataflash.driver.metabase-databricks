@@ -2,7 +2,12 @@
  ["src" "resources"]
 
  :deps
- {com.databricks/databricks-jdbc {:mvn/version "2.6.27"}}
+ {com.databricks/databricks-jdbc {:mvn/version "2.6.32"}}
+
+ :mvn/repos
+ {"athena"   {:url "https://s3.amazonaws.com/maven-athena"}
+  ;; for metabase/saml20-clj
+  "opensaml" {:url "https://build.shibboleth.net/nexus/content/repositories/releases/"}}
 
  ;; build the driver with clojure -X:build
  :aliases
