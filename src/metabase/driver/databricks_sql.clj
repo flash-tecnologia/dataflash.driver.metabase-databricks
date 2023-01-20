@@ -2,8 +2,10 @@
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.string :as str]
             [honeysql.core :as hsql]
+            [java-time :as t]
             [medley.core :as m]
             [metabase.driver :as driver] 
+            [metabase.driver.ddl.interface :as ddl.i]
             [metabase.driver.sql-jdbc.connection :as sql-jdbc.conn]
             [metabase.driver.sql-jdbc.execute :as sql-jdbc.execute]
             [metabase.driver.sql-jdbc.sync :as sql-jdbc.sync]
@@ -13,7 +15,8 @@
             [metabase.mbql.util :as mbql.u]
             [metabase.query-processor.util :as qp.util]
             [metabase.util.honeysql-extensions :as hx])
-  (:import [java.sql Connection ResultSet]))
+  (:import [java.sql Connection ResultSet]
+           [java.time OffsetDateTime ZonedDateTime]))
 
 (driver/register! :databricks-sql, :parent :sql-jdbc)
 
@@ -194,3 +197,11 @@
   (defmethod driver/supports? [:databricks-sql :foreign-keys] [_ _] true))
 
 (defmethod sql.qp/quote-style :databricks-sql [_] :mysql)
+
+(defmethod unprepare/unprepare-value [:databricks-sql OffsetDateTime]
+  [_ t]
+  (format "timestamp '%s'" (t/format "yyyy-MM-dd HH:mm:ss.SSSZZZZZ" t)))
+
+(defmethod unprepare/unprepare-value [:databricks-sql ZonedDateTime]
+  [_ t]
+  (format "timestamp '%s'" (t/format "yyyy-MM-dd HH:mm:ss.SSSZZZZZ" t)))
