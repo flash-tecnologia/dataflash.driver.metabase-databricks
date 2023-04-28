@@ -83,11 +83,17 @@
 (defmethod sql.qp/date [:databricks-sql :month-of-year]   [_ _ expr] (hsql/call :month expr))
 (defmethod sql.qp/date [:databricks-sql :quarter]         [_ _ expr] (hsql/call :date_trunc "quarter" expr))
 (defmethod sql.qp/date [:databricks-sql :quarter-of-year] [_ _ expr] (hsql/call :quarter expr))
-(defmethod sql.qp/date [:databricks-sql :year]            [_ _ expr] (hsql/call :year expr))
+(defmethod sql.qp/date [:databricks-sql :year]            [_ _ expr] (hsql/call :date_trunc "year" expr))
 
 (defmethod sql.qp/add-interval-honeysql-form :databricks-sql
   [_ hsql-form amount unit]
-  (hx/+ (hx/->timestamp hsql-form) (hsql/raw (format "(INTERVAL '%d' %s)" (int amount) (name unit)))))
+  ;; (hx/+ (hx/->timestamp hsql-form) (hsql/raw (format "(INTERVAL '%d' %s)" (int amount) (name unit)))))
+  ( let [
+      interval (if (= unit :quarter) 
+        {:amount (* 3 (int amount)), :unit "month"}
+        {:amount (int amount), :unit (name unit)})
+      ]
+     (hx/+ (hx/->timestamp hsql-form) (hsql/raw (format "(INTERVAL '%d' %s)" (:amount interval) (:unit interval))))))
 
 ;; workaround for SPARK-9686 Spark Thrift server doesn't return correct JDBC metadata
 (defmethod driver/describe-database :databricks-sql
