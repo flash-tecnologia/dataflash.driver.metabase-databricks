@@ -20,6 +20,9 @@
 
 (driver/register! :databricks-sql, :parent :sql-jdbc)
 
+(defmethod driver/database-supports? [:databricks-sql :now] [_driver _feat _db] true)
+(defmethod driver/database-supports? [:databricks-sql :datetime-diff] [_driver _feat _db] true)
+
 (defmethod sql-jdbc.conn/connection-details->spec :databricks-sql
   [_ {:keys [host http-path password db catalog]}]
   {:classname        "com.databricks.client.jdbc.Driver"
@@ -69,6 +72,10 @@
     #"(?i)STRUCT"    :type/*
     #"(?i)MAP"       :type/*))
 
+(defmethod sql.qp/current-datetime-honeysql-form :databricks-sql
+  [_]
+  (hx/with-database-type-info :%now "timestamp"))
+
 (defmethod sql.qp/date [:databricks-sql :minute]          [_ _ expr] (hsql/call :date_trunc "minute" expr))
 (defmethod sql.qp/date [:databricks-sql :minute-of-hour]  [_ _ expr] (hsql/call :minute expr))
 (defmethod sql.qp/date [:databricks-sql :hour]            [_ _ expr] (hsql/call :date_trunc "hour" expr))
@@ -88,6 +95,38 @@
 (defmethod sql.qp/add-interval-honeysql-form :databricks-sql
   [_ hsql-form amount unit]
   (hx/+ (hx/->timestamp hsql-form) (hsql/raw (format "(INTERVAL '%d' %s)" (int amount) (name unit)))))
+
+(defmethod sql.qp/datetime-diff [:databricks-sql :year]
+  [driver _unit x y]
+  (hsql/call :div (sql.qp/datetime-diff driver :month x y) 12))
+
+(defmethod sql.qp/datetime-diff [:databricks-sql :quarter]
+  [driver _unit x y]
+  (hsql/call :div (sql.qp/datetime-diff driver :month x y) 3))
+
+(defmethod sql.qp/datetime-diff [:databricks-sql :month]
+  [_driver _unit x y]
+  (hx/->integer (hsql/call :months_between y x)))
+
+(defmethod sql.qp/datetime-diff [:databricks-sql :week]
+  [_driver _unit x y]
+  (hsql/call :div (hsql/call :datediff y x) 7))
+
+(defmethod sql.qp/datetime-diff [:databricks-sql :day]
+  [_driver _unit x y]
+  (hsql/call :datediff y x))
+
+(defmethod sql.qp/datetime-diff [:databricks-sql :hour]
+  [driver _unit x y]
+  (hsql/call :div (sql.qp/datetime-diff driver :second x y) 3600))
+
+(defmethod sql.qp/datetime-diff [:databricks-sql :minute]
+  [driver _unit x y]
+  (hsql/call :div (sql.qp/datetime-diff driver :second x y) 60))
+
+(defmethod sql.qp/datetime-diff [:databricks-sql :second]
+  [_driver _unit x y]
+  (hsql/call :- (hsql/call :unix_timestamp y) (hsql/call :unix_timestamp x)))
 
 ;; workaround for SPARK-9686 Spark Thrift server doesn't return correct JDBC metadata
 (defmethod driver/describe-database :databricks-sql
