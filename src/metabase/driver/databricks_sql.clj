@@ -66,7 +66,7 @@
     #"(?i)NUMERIC"   :type/Decimal
     #"(?i)INTERVAL"  :type/*
     #"(?i)ARRAY.*"   :type/Array
-    #"(?i)STRUCT.*"  :type/*
+    #"(?i)STRUCT.*"  :type/Dictionary
     #"(?i)MAP"       :type/*))
 
 (defmethod sql.qp/date [:databricks-sql :minute]          [_ _ expr] (hsql/call :date_trunc "minute" expr))
