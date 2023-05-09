@@ -21,10 +21,10 @@
 (driver/register! :databricks-sql, :parent :sql-jdbc)
 
 (defmethod sql-jdbc.conn/connection-details->spec :databricks-sql
-  [_ {:keys [host http-path password db catalog]}]
+  [_ {:keys [host http-path password catalog]}]
   {:classname        "com.databricks.client.jdbc.Driver"
    :subprotocol      "databricks"
-   :subname          (str "//" host ":443/" db)
+   :subname          (str "//" host ":443")
    :transportMode    "http"
    :ssl              1
    :AuthMech         3
@@ -66,7 +66,7 @@
     #"(?i)NUMERIC"   :type/Decimal
     #"(?i)INTERVAL"  :type/*
     #"(?i)ARRAY.*"   :type/Array
-    #"(?i)STRUCT"    :type/*
+    #"(?i)STRUCT.*"  :type/Dictionary
     #"(?i)MAP"       :type/*))
 
 (defmethod sql.qp/date [:databricks-sql :minute]          [_ _ expr] (hsql/call :date_trunc "minute" expr))
@@ -96,15 +96,28 @@
      (hx/+ (hx/->timestamp hsql-form) (hsql/raw (format "(INTERVAL '%d' %s)" (:amount interval) (:unit interval))))))
 
 ;; workaround for SPARK-9686 Spark Thrift server doesn't return correct JDBC metadata
+;; (defmethod driver/describe-database :databricks-sql
+;;   [_ database]
+;;   {:tables
+;;    (with-open [conn (jdbc/get-connection (sql-jdbc.conn/db->pooled-connection-spec database))]
+;;      (set
+;;       (for [{:keys [database tablename], table-namespace :namespace} (jdbc/query {:connection conn} ["show tables"])]
+;;         {:name   tablename
+;;          :schema (or (not-empty database)
+;;                      (not-empty table-namespace))})))})
+
+(def get-tables-query
+    (str "SELECT table_schema, table_name FROM information_schema.tables "
+        "WHERE table_schema != 'information_schema'"))
+
 (defmethod driver/describe-database :databricks-sql
   [_ database]
   {:tables
    (with-open [conn (jdbc/get-connection (sql-jdbc.conn/db->pooled-connection-spec database))]
      (set
-      (for [{:keys [database tablename], table-namespace :namespace} (jdbc/query {:connection conn} ["show tables"])]
-        {:name   tablename
-         :schema (or (not-empty database)
-                     (not-empty table-namespace))})))})
+      (for [{:keys [table_schema table_name]} (jdbc/query {:connection conn} [get-tables-query])]
+        {:name   table_name
+         :schema table_schema})))})       
 
 ;; Hive describe table result has commented rows to distinguish partitions
 (defn- valid-describe-table-row? [{:keys [col_name data_type]}]
