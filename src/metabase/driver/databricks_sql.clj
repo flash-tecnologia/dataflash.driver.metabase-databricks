@@ -21,7 +21,7 @@
 (driver/register! :databricks-sql, :parent :sql-jdbc)
 
 (defmethod sql-jdbc.conn/connection-details->spec :databricks-sql
-  [_ {:keys [host http-path password]}]
+  [_ {:keys [host http-path password catalog]}]
   {:classname        "com.databricks.client.jdbc.Driver"
    :subprotocol      "databricks"
    :subname          (str "//" host ":443")
@@ -30,7 +30,8 @@
    :AuthMech         3
    :httpPath         http-path
    :uid              "token"
-   :pwd              password})
+   :pwd              password
+   :connCatalog      catalog})
 
 (defmethod sql-jdbc.conn/data-warehouse-connection-pool-properties :databricks-sql
   [driver database]
@@ -85,22 +86,10 @@
 
 (defmethod sql.qp/add-interval-honeysql-form :databricks-sql
   [_ hsql-form amount unit]
-  ;; (hx/+ (hx/->timestamp hsql-form) (hsql/raw (format "(INTERVAL '%d' %s)" (int amount) (name unit)))))
   (let [interval (if (= unit :quarter)
                    {:amount (* 3 (int amount)), :unit "month"}
                    {:amount (int amount), :unit (name unit)})]
     (hx/+ (hx/->timestamp hsql-form) (hsql/raw (format "(INTERVAL '%d' %s)" (:amount interval) (:unit interval))))))
-
-;; workaround for SPARK-9686 Spark Thrift server doesn't return correct JDBC metadata
-;; (defmethod driver/describe-database :databricks-sql
-;;   [_ database]
-;;   {:tables
-;;    (with-open [conn (jdbc/get-connection (sql-jdbc.conn/db->pooled-connection-spec database))]
-;;      (set
-;;       (for [{:keys [database tablename], table-namespace :namespace} (jdbc/query {:connection conn} ["show tables"])]
-;;         {:name   tablename
-;;          :schema (or (not-empty database)
-;;                      (not-empty table-namespace))})))})
 
 (def get-tables-query
   (str "SELECT table_catalog, table_schema, table_name FROM system.information_schema.tables "

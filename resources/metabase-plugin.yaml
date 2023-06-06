@@ -17,6 +17,9 @@ driver:
       - name: password
         display-name: Personal Access Token
         required: true
+      - name: catalog
+        display-name: Default Catalog
+        required: true
       - advanced-options-start
       - default-advanced-options
 init:
