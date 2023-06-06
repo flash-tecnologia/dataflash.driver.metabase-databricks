@@ -4,7 +4,7 @@
             [honeysql.core :as hsql]
             [java-time :as t]
             [medley.core :as m]
-            [metabase.driver :as driver] 
+            [metabase.driver :as driver]
             [metabase.driver.ddl.interface :as ddl.i]
             [metabase.driver.sql-jdbc.connection :as sql-jdbc.conn]
             [metabase.driver.sql-jdbc.execute :as sql-jdbc.execute]
@@ -21,7 +21,7 @@
 (driver/register! :databricks-sql, :parent :sql-jdbc)
 
 (defmethod sql-jdbc.conn/connection-details->spec :databricks-sql
-  [_ {:keys [host http-path password catalog]}]
+  [_ {:keys [host http-path password]}]
   {:classname        "com.databricks.client.jdbc.Driver"
    :subprotocol      "databricks"
    :subname          (str "//" host ":443")
@@ -30,9 +30,7 @@
    :AuthMech         3
    :httpPath         http-path
    :uid              "token"
-   :pwd              password
-   :connCatalog      catalog
-   })
+   :pwd              password})
 
 (defmethod sql-jdbc.conn/data-warehouse-connection-pool-properties :databricks-sql
   [driver database]
@@ -88,12 +86,10 @@
 (defmethod sql.qp/add-interval-honeysql-form :databricks-sql
   [_ hsql-form amount unit]
   ;; (hx/+ (hx/->timestamp hsql-form) (hsql/raw (format "(INTERVAL '%d' %s)" (int amount) (name unit)))))
-  ( let [
-      interval (if (= unit :quarter) 
-        {:amount (* 3 (int amount)), :unit "month"}
-        {:amount (int amount), :unit (name unit)})
-      ]
-     (hx/+ (hx/->timestamp hsql-form) (hsql/raw (format "(INTERVAL '%d' %s)" (:amount interval) (:unit interval))))))
+  (let [interval (if (= unit :quarter)
+                   {:amount (* 3 (int amount)), :unit "month"}
+                   {:amount (int amount), :unit (name unit)})]
+    (hx/+ (hx/->timestamp hsql-form) (hsql/raw (format "(INTERVAL '%d' %s)" (:amount interval) (:unit interval))))))
 
 ;; workaround for SPARK-9686 Spark Thrift server doesn't return correct JDBC metadata
 ;; (defmethod driver/describe-database :databricks-sql
@@ -107,17 +103,17 @@
 ;;                      (not-empty table-namespace))})))})
 
 (def get-tables-query
-    (str "SELECT table_schema, table_name FROM information_schema.tables "
-        "WHERE table_schema != 'information_schema'"))
+  (str "SELECT table_catalog, table_schema, table_name FROM system.information_schema.tables "
+       "WHERE table_schema != 'information_schema'"))
 
 (defmethod driver/describe-database :databricks-sql
   [_ database]
   {:tables
    (with-open [conn (jdbc/get-connection (sql-jdbc.conn/db->pooled-connection-spec database))]
      (set
-      (for [{:keys [table_schema table_name]} (jdbc/query {:connection conn} [get-tables-query])]
+      (for [{:keys [table_catalog table_schema table_name]} (jdbc/query {:connection conn} [get-tables-query])]
         {:name   table_name
-         :schema table_schema})))})       
+         :schema (str table_catalog "." table_schema)})))})
 
 ;; Hive describe table result has commented rows to distinguish partitions
 (defn- valid-describe-table-row? [{:keys [col_name data_type]}]
@@ -215,7 +211,7 @@
 (when-not (get (methods driver/supports?) [:databricks-sql :foreign-keys])
   (defmethod driver/supports? [:databricks-sql :foreign-keys] [_ _] true))
 
-(defmethod sql.qp/quote-style :databricks-sql [_] :mysql)
+(defmethod sql.qp/quote-style :databricks-sql [_] nil)
 
 (defmethod unprepare/unprepare-value [:databricks-sql OffsetDateTime]
   [_ t]
