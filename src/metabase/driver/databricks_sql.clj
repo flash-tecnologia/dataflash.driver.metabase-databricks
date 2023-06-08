@@ -217,5 +217,6 @@
   (let [s (-> (u/remove-diacritical-marks s)
               (str/replace #"[\s]" "_")
               (str/replace #"[\%]" "perc")
-              (str/replace #"[\#]" "qty"))]
+              (str/replace #"[\#]" "qty")
+              (u/slugify))]
     (driver.impl/truncate-alias s)))
