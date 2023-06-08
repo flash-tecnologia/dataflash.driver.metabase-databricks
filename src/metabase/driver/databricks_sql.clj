@@ -6,6 +6,7 @@
             [medley.core :as m]
             [metabase.driver :as driver]
             [metabase.driver.ddl.interface :as ddl.i]
+            [metabase.driver.impl :as driver.impl]
             [metabase.driver.sql-jdbc.connection :as sql-jdbc.conn]
             [metabase.driver.sql-jdbc.execute :as sql-jdbc.execute]
             [metabase.driver.sql-jdbc.sync :as sql-jdbc.sync]
@@ -14,6 +15,7 @@
             [metabase.driver.sql.util.unprepare :as unprepare]
             [metabase.mbql.util :as mbql.u]
             [metabase.query-processor.util :as qp.util]
+            [metabase.util :as u]
             [metabase.util.honeysql-extensions :as hx])
   (:import [java.sql Connection ResultSet]
            [java.time OffsetDateTime ZonedDateTime]))
@@ -139,7 +141,7 @@
   `:friendly` makes a best-effort attempt to escape strings and generate SQL that is nice to look at, but should not
   be considered safe against all SQL injection -- use this for 'convert to SQL' functionality. `:paranoid` hex-encodes
   strings so SQL injection is impossible; this isn't nice to look at, so use this for actually running a query."
-  :friendly)
+  :paranoid)
 
 ;; bound variables are not supported in Spark SQL (maybe not Hive either, haven't checked)
 (defmethod driver/execute-reducible-query :databricks-sql
@@ -209,3 +211,8 @@
 (defmethod unprepare/unprepare-value [:databricks-sql ZonedDateTime]
   [_ t]
   (format "timestamp '%s'" (t/format "yyyy-MM-dd HH:mm:ss.SSSZZZZZ" t)))
+
+(defmethod driver/escape-alias :databricks-sql
+  [_driver s]
+  (let [s (-> (u/remove-diacritical-marks s) (str/replace #"[\s]" "_"))]
+    (driver.impl/truncate-alias s)))
