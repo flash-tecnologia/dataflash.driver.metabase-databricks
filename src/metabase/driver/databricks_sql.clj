@@ -214,5 +214,7 @@
 
 (defmethod driver/escape-alias :databricks-sql
   [_driver s]
-  (let [s (-> (u/remove-diacritical-marks s) (str/replace #"[\s]" "_"))]
+  (let [s (-> (u/remove-diacritical-marks s)
+              (str/replace #"[\s]" "_")
+              (str/replace #"[\%]" "perc"))]
     (driver.impl/truncate-alias s)))
