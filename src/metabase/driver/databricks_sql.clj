@@ -41,7 +41,9 @@
   ;; validate connections upon checkout.
   (merge
    ((get-method sql-jdbc.conn/data-warehouse-connection-pool-properties :sql-jdbc) driver database)
-   {"preferredTestQuery" "SELECT 1"}))
+   {"preferredTestQuery"       "SELECT 1"
+    "testConnectionOnCheckout" false
+    "maxIdleTime"              0}))
 
 (defmethod sql-jdbc.sync/database-type->base-type :databricks-sql
   [_ database-type]
