@@ -5,7 +5,6 @@
             [java-time :as t]
             [medley.core :as m]
             [metabase.driver :as driver]
-            [metabase.driver.ddl.interface :as ddl.i]
             [metabase.driver.impl :as driver.impl]
             [metabase.driver.sql-jdbc.connection :as sql-jdbc.conn]
             [metabase.driver.sql-jdbc.execute :as sql-jdbc.execute]
@@ -96,7 +95,7 @@
     (hx/+ (hx/->timestamp hsql-form) (hsql/raw (format "(INTERVAL '%d' %s)" (:amount interval) (:unit interval))))))
 
 (def get-tables-query
-  (str "SELECT table_catalog, table_schema, table_name FROM system.information_schema.tables "
+  (str "SELECT table_catalog, table_schema, table_name, comment FROM system.information_schema.tables "
        "WHERE table_schema != 'information_schema'"))
 
 (defmethod driver/describe-database :databricks-sql
@@ -104,9 +103,10 @@
   {:tables
    (with-open [conn (jdbc/get-connection (sql-jdbc.conn/db->pooled-connection-spec database))]
      (set
-      (for [{:keys [table_catalog table_schema table_name]} (jdbc/query {:connection conn} [get-tables-query])]
+      (for [{:keys [table_catalog table_schema table_name comment]} (jdbc/query {:connection conn} [get-tables-query])]
         {:name   table_name
-         :schema (str table_catalog "." table_schema)})))})
+         :schema (str table_catalog "." table_schema)
+         :description comment})))})
 
 ;; Hive describe table result has commented rows to distinguish partitions
 (defn- valid-describe-table-row? [{:keys [col_name data_type]}]
@@ -131,12 +131,15 @@
                                                                       (dash-to-underscore schema)
                                                                       (dash-to-underscore table-name)))])]
        (set
-        (for [[idx {col-name :col_name, data-type :data_type, :as result}] (m/indexed results)
+        (for [[idx {col-name :col_name, data-type :data_type, comment :comment, :as result}] (m/indexed results)
               :while (valid-describe-table-row? result)]
-          {:name              col-name
-           :database-type     data-type
-           :base-type         (sql-jdbc.sync/database-type->base-type :databricks-sql (keyword data-type))
-           :database-position idx}))))})
+          (merge
+           {:name              col-name
+            :database-type     data-type
+            :base-type         (sql-jdbc.sync/database-type->base-type :databricks-sql (keyword data-type))
+            :database-position idx}
+           (when (not (str/blank? comment))
+             {:field-comment comment}))))))})
 
 (def ^:dynamic *param-splice-style*
   "How we should splice params into SQL (i.e. 'unprepare' the SQL). Either `:friendly` (the default) or `:paranoid`.
