@@ -68,7 +68,7 @@
     #"(?i)NUMERIC"   :type/Decimal
     #"(?i)INTERVAL"  :type/*
     #"(?i)ARRAY.*"   :type/Array
-    #"(?i)STRUCT.*"  :type/Dictionary
+    #"(?i)STRUCT.*"  :type/*
     #"(?i)MAP"       :type/*))
 
 (defmethod sql.qp/date [:databricks-sql :minute]          [_ _ expr] (hsql/call :date_trunc "minute" expr))
@@ -99,14 +99,18 @@
        "WHERE table_schema != 'information_schema'"))
 
 (defmethod driver/describe-database :databricks-sql
-  [_ database]
+  [driver database]
   {:tables
-   (with-open [conn (jdbc/get-connection (sql-jdbc.conn/db->pooled-connection-spec database))]
-     (set
-      (for [{:keys [table_catalog table_schema table_name comment]} (jdbc/query {:connection conn} [get-tables-query])]
-        {:name   table_name
-         :schema (str table_catalog "." table_schema)
-         :description comment})))})
+   (sql-jdbc.execute/do-with-connection-with-options
+    driver
+    database
+    nil
+    (fn [^Connection conn]
+      (set
+       (for [{:keys [table_catalog table_schema table_name comment]} (jdbc/query {:connection conn} [get-tables-query])]
+         {:name   table_name
+          :schema (str table_catalog "." table_schema)
+          :description comment}))))})
 
 ;; Hive describe table result has commented rows to distinguish partitions
 (defn- valid-describe-table-row? [{:keys [col_name data_type]}]
@@ -124,22 +128,30 @@
   {:name   table-name
    :schema schema
    :fields
-   (with-open [conn (jdbc/get-connection (sql-jdbc.conn/db->pooled-connection-spec database))]
-     (let [results (jdbc/query {:connection conn} [(format
-                                                    "describe %s"
-                                                    (sql.u/quote-name driver :table
-                                                                      (dash-to-underscore schema)
-                                                                      (dash-to-underscore table-name)))])]
-       (set
-        (for [[idx {col-name :col_name, data-type :data_type, comment :comment, :as result}] (m/indexed results)
-              :while (valid-describe-table-row? result)]
-          (merge
-           {:name              col-name
-            :database-type     data-type
-            :base-type         (sql-jdbc.sync/database-type->base-type :databricks-sql (keyword data-type))
-            :database-position idx}
-           (when (not (str/blank? comment))
-             {:field-comment comment}))))))})
+   (sql-jdbc.execute/do-with-connection-with-options
+    driver
+    database
+    nil
+    (fn [^Connection conn]
+      (let [results (jdbc/query {:connection conn} [(format
+                                                     "describe %s"
+                                                     (sql.u/quote-name driver :table
+                                                                       (dash-to-underscore schema)
+                                                                       (dash-to-underscore table-name)))])]
+        (set
+         (for [[idx {col-name :col_name, data-type :data_type, comment :comment, :as result}] (m/indexed results)
+               :while (valid-describe-table-row? result)]
+           (merge
+            {:name              col-name
+             :database-type     data-type
+             :base-type         (sql-jdbc.sync/database-type->base-type :databricks-sql (keyword data-type))
+             :database-position idx}
+            (when (not (str/blank? comment))
+              {:field-comment comment})))))))})
+
+(defmethod driver/describe-table-fks :databricks-sql
+  [_driver _database _table]
+  nil)
 
 (def ^:dynamic *param-splice-style*
   "How we should splice params into SQL (i.e. 'unprepare' the SQL). Either `:friendly` (the default) or `:paranoid`.
@@ -166,15 +178,16 @@
 ;; 2.  SparkSQL doesn't support session timezones (at least our driver doesn't support it)
 ;; 3.  SparkSQL doesn't support making connections read-only
 ;; 4.  SparkSQL doesn't support setting the default result set holdability
-(defmethod sql-jdbc.execute/connection-with-timezone :databricks-sql
-  [driver database _timezone-id]
-  (let [conn (.getConnection (sql-jdbc.execute/datasource-with-diagnostic-info! driver database))]
-    (try
-      (.setTransactionIsolation conn Connection/TRANSACTION_READ_UNCOMMITTED)
-      conn
-      (catch Throwable e
-        (.close conn)
-        (throw e)))))
+(defmethod sql-jdbc.execute/do-with-connection-with-options :databricks-sql
+  [driver db-or-id-or-spec options f]
+  (sql-jdbc.execute/do-with-resolved-connection
+   driver
+   db-or-id-or-spec
+   options
+   (fn [^Connection conn]
+     (when-not (sql-jdbc.execute/recursive-connection?)
+       (.setTransactionIsolation conn Connection/TRANSACTION_READ_UNCOMMITTED))
+     (f conn))))
 
 ;; 1.  SparkSQL doesn't support setting holdability type to `CLOSE_CURSORS_AT_COMMIT`
 (defmethod sql-jdbc.execute/prepared-statement :databricks-sql
