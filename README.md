@@ -114,3 +114,12 @@ java -jar metabase.jar
 ```
 
 After a few seconds, you can access and test your Metabase at http://localhost:3000
+
+## Implement new features/Update Metabase version
+
+To implement new features or simply update your Metabase version without breaking anything, you can use other drivers as reference.
+
+Here are some useful ones:
+- https://github.com/relferreira/metabase-sparksql-databricks-driver: Third-party driver for connecting Metabase to Databricks. As of this writing, it doesn't support Unity Catalog, but there might be some useful code nonetheless.
+- https://github.com/metabase/metabase/tree/master/modules/drivers/sparksql: Official Metabase driver for SparkSQL. Although it is not designed specifically for Databricks, the SparkSQL syntax used is the same. This is the most useful one when you want to update your Metabase version, because you can see what changes were made to the official driver to support the new versions, without breaking anything.
+- https://github.com/metabase/metabase/tree/master/modules/drivers: All official Metabase drivers can be found here. Sometimes it is useful to see how some specific functions are implemented and used by other databases, even though the syntax might be slightly different for Databricks/Spark
